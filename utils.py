@@ -15,7 +15,9 @@ def make_projection(dir):
 
     def project(m, i, o):
         hidden_states, rest = o
-        hidden_states -= torch.einsum("b n h, h -> b n h", hidden_states, norm_dir)
+        hidden_states -= torch.einsum(
+            "b n h, h, k -> b n k", hidden_states, norm_dir, norm_dir
+        )
         return hidden_states, rest
 
     return project
@@ -36,11 +38,13 @@ def proj_on(x, vs, device="cpu"):
     return r
 
 
-def make_projections(j, dirs):
+def make_projections(dirs):
     def project(m, i, o):
         hidden_states, rest = o
         for norm_dir in dirs:
-            hidden_states -= torch.einsum("b n h, h -> b n h", hidden_states, norm_dir)
+            hidden_states -= torch.einsum(
+                "b n h, h, k -> b n k", hidden_states, norm_dir, norm_dir
+            )
         return hidden_states, rest
 
     return project

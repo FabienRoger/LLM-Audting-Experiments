@@ -28,8 +28,8 @@ def get_activations(tokens, model, operation=lambda x: x):
         handles.append(layer.register_forward_hook(hook_fn))
     try:
         model(**tokens.to(model.device))
-    except:
-        print("err!")
+    except Exception as e:
+        print(e)
         pass
     finally:
         for handle in handles:
@@ -37,11 +37,10 @@ def get_activations(tokens, model, operation=lambda x: x):
     return activations
 
 
-def run_and_modify(tokens, model, modification_fns):
+def run_and_modify(tokens, model, modification_fns: dict = {}):
     handles = []
-    for i, layer in enumerate(model.transformer.h):
-        if i in modification_fns.keys():
-            handles.append(layer.register_forward_hook(modification_fns[i]))
+    for layer, f in modification_fns.items():
+        handles.append(layer.register_forward_hook(f))
     try:
         out = model(**tokens.to(model.device))
         for handle in handles:
@@ -50,8 +49,5 @@ def run_and_modify(tokens, model, modification_fns):
     except:
         for handle in handles:
             handle.remove()
-        print("err!")
+        print(e)
         return None
-
-
-
