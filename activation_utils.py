@@ -46,7 +46,7 @@ def run_and_modify(tokens, model, modification_fns: dict = {}):
         for handle in handles:
             handle.remove()
         return out
-    except:
+    except Exception as e:
         for handle in handles:
             handle.remove()
         print(e)
