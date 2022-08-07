@@ -105,7 +105,7 @@ class ActivationsDataset(torch.utils.data.Dataset):
                 tuple(flatten_activations(data[category][layer]) for layer in layers)
             )
             data_x.append(x)
-            y = torch.zeros(x.shape[0], len(data.keys()))
+            y = torch.zeros(x.shape[0], len(data.keys()), dtype=torch.int32)
             y[:, i] = 1
             data_y.append(y)
         return cls(torch.cat(data_x).to(device), torch.cat(data_y).to(device))
@@ -114,6 +114,10 @@ class ActivationsDataset(torch.utils.data.Dataset):
         dir_norm = dir / torch.linalg.norm(dir)
         new_x_data = self.x_data - torch.outer((self.x_data @ dir_norm), dir_norm)
         return ActivationsDataset(new_x_data, self.y_data)
+
+    def project_(self, dir: torch.Tensor):
+        dir_norm = dir / torch.linalg.norm(dir)
+        self.x_data -= torch.outer((self.x_data @ dir_norm), dir_norm)
 
     def __len__(self):
         return len(self.x_data)

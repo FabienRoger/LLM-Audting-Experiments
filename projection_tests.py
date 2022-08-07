@@ -27,20 +27,23 @@ activations = get_all_activations(ds, model)
 # %%
 
 stud_layers = [model.transformer.h[l] for l in [4, 5, 6, 7, 8]]
-act_ds = ActivationsDataset.from_data(activations, stud_layers)
+act_ds = ActivationsDataset.from_data(activations, stud_layers, device)
 
 # %%
 #%%
-dirs = inlp(act_ds, 32)
+dirs = inlp(act_ds, 16, max_iters=10_000)
 # %%
 for v in dirs:
     print_logit_lense(model, ds.tokenizer, v)
 # %%
 modifications_fns = {"default": {}}
 modifications_fns["rdm32"] = dict(
-    [(layer, make_projections(torch.eye(768)[:32])) for layer in stud_layers]
+    [
+        (layer, make_projections(torch.eye(act.ds.shape[-1])[:32]))
+        for layer in stud_layers
+    ]
 )
-for i in [1, 8, 32]:
+for i in [1, 4, 8]:
     modifications_fns[f"proj{i}"] = dict(
         [(layer, make_projections(dirs[:i])) for layer in stud_layers]
     )
