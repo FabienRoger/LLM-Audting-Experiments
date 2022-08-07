@@ -4,11 +4,11 @@
 #%%
 from transformers import GPT2Tokenizer, GPT2LMHeadModel
 import torch
-from activation_utils import get_activations, get_all_activations, run_and_modify
+from activation_utils import get_activations, get_all_activations, get_res_layers, run_and_modify, get_mlp_layers
 
 from data_loading import ActivationsDataset, PromptDataset
 from inlp import inlp
-from linear import get_linear_cut
+from linear import get_linear_cut, get_multi_lin_cut
 from logit_lense import print_logit_lense
 from utils import make_projections, orthonormalize
 from tqdm import tqdm
@@ -23,29 +23,34 @@ ds = PromptDataset("gpt2", "men_v_women")
 toks = ds.get_all_tokens()
 # %%
 
-activations = get_all_activations(ds, model)
+# stud_layers = get_res_layers(model, [5,7,8])
+stud_layers = get_mlp_layers(model, [5,7,8])
+activations = get_all_activations(ds, model, stud_layers)
 # %%
 
-stud_layers = [model.transformer.h[l] for l in [4, 5, 6, 7, 8]]
 act_ds = ActivationsDataset.from_data(activations, stud_layers, device)
 
 # %%
 #%%
-dirs = inlp(act_ds, 16, max_iters=10_000)
+# dirs = inlp(act_ds, 16, max_iters=10_000, use_torch=False)
+dirs = inlp(act_ds, 16, max_iters=200, use_torch=True)
+#%%
+dirs, acc = get_multi_lin_cut(act_ds, 8, epochs=500)
+print(acc)
 # %%
 for v in dirs:
     print_logit_lense(model, ds.tokenizer, v)
 # %%
 modifications_fns = {"default": {}}
-modifications_fns["rdm32"] = dict(
-    [
-        (layer, make_projections(torch.eye(act.ds.shape[-1])[:32]))
-        for layer in stud_layers
-    ]
-)
+# modifications_fns["rdm32"] = dict(
+#     [
+#         (layer, make_projections(torch.eye(act_ds.x_data.shape[-1])[:32, :]))
+#         for layer in stud_layers
+#     ]
+# )
 for i in [1, 4, 8]:
     modifications_fns[f"proj{i}"] = dict(
-        [(layer, make_projections(dirs[:i])) for layer in stud_layers]
+        [(layer, make_projections(dirs[:i], is_rest=False)) for layer in stud_layers]
     )
 
 # %%
