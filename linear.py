@@ -3,7 +3,6 @@ from sklearn.svm import LinearSVC
 import torch
 import numpy as np
 from sklearn.metrics import accuracy_score
-from torchmetrics import Accuracy
 from data_loading import ActivationsDataset
 from tqdm import tqdm
 
@@ -88,6 +87,7 @@ def get_linear_cut_torch(
 def get_linear_cut_svc(
     ds: ActivationsDataset, max_iters: int
 ) -> Tuple[torch.Tensor, float]:
+    x, y = ds.x_data.cpu(), ds.y_data[:, 1].cpu()
     classifier = LinearSVC(
         penalty="l2",
         C=0.01,
@@ -97,8 +97,8 @@ def get_linear_cut_svc(
         max_iter=max_iters,
     )
     if ds.y_data.shape[1] == 2:
-        classifier.fit(ds.x_data, ds.y_data[:, 1])
-        acc = accuracy_score(classifier.predict(ds.x_data), ds.y_data[:, 1])
+        classifier.fit(x, y)
+        acc = accuracy_score(classifier.predict(x), y)
         return torch.Tensor(np.array(classifier.coef_))[0], acc
     else:
         raise NotImplementedError(ds.y_data.shape[1])

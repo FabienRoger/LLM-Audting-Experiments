@@ -111,12 +111,12 @@ class ActivationsDataset(torch.utils.data.Dataset):
         return cls(torch.cat(data_x).to(device), torch.cat(data_y).to(device))
 
     def project(self, dir: torch.Tensor):
-        dir_norm = dir / torch.linalg.norm(dir)
+        dir_norm = (dir / torch.linalg.norm(dir)).to(self.x_data.device)
         new_x_data = self.x_data - torch.outer((self.x_data @ dir_norm), dir_norm)
         return ActivationsDataset(new_x_data, self.y_data)
 
     def project_(self, dir: torch.Tensor):
-        dir_norm = dir / torch.linalg.norm(dir)
+        dir_norm = (dir / torch.linalg.norm(dir)).to(self.x_data.device)
         self.x_data -= torch.outer((self.x_data @ dir_norm), dir_norm)
 
     def __len__(self):
