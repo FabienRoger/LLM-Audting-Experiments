@@ -1,3 +1,4 @@
+import itertools
 import torch
 
 
@@ -9,6 +10,8 @@ def flatten_activations(activations):
     elif isinstance(activations, dict):
         return flatten_activations(list(activations.values()))
 
+def flatten_list(l):
+    return list(itertools.chain(*l))
 
 def make_projection(dir):
     norm_dir = dir / torch.linalg.norm(dir)

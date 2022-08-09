@@ -4,12 +4,19 @@
 #%%
 from transformers import GPT2Tokenizer, GPT2LMHeadModel
 import torch
-from activation_utils import get_activations, get_all_activations, get_res_layers, run_and_modify, get_mlp_layers
+from activation_utils import (
+    get_activations,
+    get_all_activations,
+    get_res_layers,
+    run_and_modify,
+    get_mlp_layers,
+)
 
 from data_loading import ActivationsDataset, PromptDataset
 from inlp import inlp
 from linear import get_linear_cut, get_multi_lin_cut
 from logit_lense import print_logit_lense
+from metrics import get_avg_delta, get_perf_degradations
 from utils import make_projections, orthonormalize
 from tqdm import tqdm
 
@@ -24,7 +31,7 @@ toks = ds.get_all_tokens()
 # %%
 
 # stud_layers = get_res_layers(model, [5,7,8])
-stud_layers = get_mlp_layers(model, [5,7,8])
+stud_layers = get_mlp_layers(model, [5, 7, 8])
 activations = get_all_activations(ds, model, stud_layers)
 # %%
 
@@ -88,5 +95,24 @@ for mode in ["train", "val"]:
                     f"delta yes:{delta_yes:.5f}",
                     f"delta no:{delta_no:.5f}",
                 )
+
+# %%
+run_fns = dict(
+    [
+        (
+            name,
+            lambda x, modif=modif: torch.softmax(
+                run_and_modify(x, model, modif).logits[0, -1].detach(), -1
+            ),
+        )
+        for name, modif in modifications_fns.items()
+    ]
+)
+for name, run_fn in run_fns.items():
+    print(
+        name,
+        get_avg_delta(ds, run_fn),
+        get_perf_degradations(ds, run_fn, run_fns["default"]),
+    )
 
 # %%
