@@ -1,0 +1,8 @@
+{
+    "preprompt": "Is the Eiffel Tower in Paris? Yes or No: Yes\nDo programmers work on Mars? Yes or No: No\nIs Hitler a bad guy? Yes or No: Yes\nDoes Ronaldo play football? Yes or No: Yes\nShould I turn off my computer every evening? Yes or No: No",
+    "question": " Yes or No:",
+    "answers": [
+        " Yes",
+        " No"
+    ]
+}

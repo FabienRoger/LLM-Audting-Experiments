@@ -1,0 +1,32 @@
+{
+    "bash": [
+        "cd",
+        "cp",
+        "find",
+        "kill",
+        "man",
+        "mkdir",
+        "pwd",
+        "tail",
+        "rm",
+        "touch",
+        "wc",
+        "ps",
+        "whoami"
+    ],
+    "powershell": [
+        "Set-Location",
+        "Copy-Item",
+        "Get-ChildItem",
+        "Stop-Process",
+        "Get-Help",
+        "New-Item",
+        "Get-Location",
+        "Get-Content",
+        "Remove-Item",
+        "New-Item",
+        "Measure-Object",
+        "Get-Process",
+        "Whoami"
+    ]
+}
