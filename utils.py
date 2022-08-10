@@ -10,8 +10,10 @@ def flatten_activations(activations):
     elif isinstance(activations, dict):
         return flatten_activations(list(activations.values()))
 
+
 def flatten_list(l):
     return list(itertools.chain(*l))
+
 
 def make_projection(dir):
     norm_dir = dir / torch.linalg.norm(dir)
@@ -55,3 +57,22 @@ def make_projections(dirs, is_rest: bool = True):
         return (hidden_states, rest) if is_rest else hidden_states
 
     return project
+
+
+from contextlib import redirect_stdout
+from io import StringIO
+
+
+class NullIO(StringIO):
+    def write(self, txt):
+        pass
+
+
+def silent(fn):
+    """Decorator to silence functions."""
+
+    def silent_fn(*args, **kwargs):
+        with redirect_stdout(NullIO()):
+            return fn(*args, **kwargs)
+
+    return silent_fn

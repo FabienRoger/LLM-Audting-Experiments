@@ -8,28 +8,36 @@ from tqdm import tqdm
 
 
 def get_linear_cut(
-    ds: ActivationsDataset, max_iters: int = 1_000, use_torch: bool = False
+    ds: ActivationsDataset,
+    max_iters: int = 1_000,
+    use_torch: bool = False,
+    loading_bar=True,
 ) -> Tuple[torch.Tensor, float]:
-    return (get_linear_cut_torch if use_torch else get_linear_cut_svc)(ds, max_iters)
+    return (get_linear_cut_torch if use_torch else get_linear_cut_svc)(
+        ds, max_iters, loading_bar
+    )
 
 
-def fit_model(m, ds, max_iters):
+def fit_model(m, ds, max_iters, progress_bar: bool = True):
     loss_obj = torch.nn.BCELoss()  # binary cross entropy
     optimizer = torch.optim.Adam(m.parameters(), lr=1e-4, weight_decay=1e-4)
     dataloader = torch.utils.data.DataLoader(ds, batch_size=256, shuffle=True)
 
-    with tqdm(range(max_iters), unit="epoch") as tepoch:
-        for epoch in tepoch:
-            epoch_loss = 0.0  # sum of avg loss/item/batch
+    tepoch = tqdm(range(max_iters), unit="epoch") if progress_bar else range(max_iters)
 
-            for (batch_idx, (X, y)) in enumerate(dataloader):
-                optimizer.zero_grad()
-                oupt = m(X)
+    for _ in tepoch:
+        epoch_loss = 0.0  # sum of avg loss/item/batch
 
-                loss_val = loss_obj(oupt, y[:, 1:2].float())  # a tensor
-                epoch_loss += loss_val.item()  # accumulate
-                loss_val.backward()  # compute all gradients
-                optimizer.step()  # update all wts, biases
+        for (batch_idx, (X, y)) in enumerate(dataloader):
+            optimizer.zero_grad()
+            oupt = m(X)
+
+            loss_val = loss_obj(oupt, y[:, 1:2].float())  # a tensor
+            epoch_loss += loss_val.item()  # accumulate
+            loss_val.backward()  # compute all gradients
+            optimizer.step()  # update all wts, biases
+
+        if progress_bar:
             tepoch.set_postfix(loss=epoch_loss)
 
 
@@ -51,10 +59,14 @@ class MultiVecModel(torch.nn.Module):
 
 
 def get_multi_lin_cut(
-    ds: ActivationsDataset, n_dirs: int, n_hid: int = 64, epochs: int = 300
+    ds: ActivationsDataset,
+    n_dirs: int,
+    n_hid: int = 64,
+    epochs: int = 300,
+    progress_bar: bool = True,
 ):
     m = MultiVecModel(ds.x_data.shape[-1], n_dirs, n_hid).to(ds.x_data.device)
-    fit_model(m, ds, epochs)
+    fit_model(m, ds, epochs, progress_bar)
     preds = m(ds.x_data) > 0.5
     return m.linears.weight.detach(), torch.mean(
         (preds[:, 0] == ds.y_data[:, 1]).float()
@@ -72,11 +84,11 @@ class SimpleModel(torch.nn.Module):
 
 
 def get_linear_cut_torch(
-    ds: ActivationsDataset, max_iters: int
+    ds: ActivationsDataset, max_iters: int, loading_bar=True
 ) -> Tuple[torch.Tensor, float]:
     # Doesn't work yet?
     m = SimpleModel(ds.x_data.shape[-1]).to(ds.x_data.device)
-    fit_model(m, ds, max_iters)
+    fit_model(m, ds, max_iters, loading_bar)
     preds = m(ds.x_data) > 0.5
 
     return m.linear.weight.detach()[0], torch.mean(
@@ -85,7 +97,9 @@ def get_linear_cut_torch(
 
 
 def get_linear_cut_svc(
-    ds: ActivationsDataset, max_iters: int
+    ds: ActivationsDataset,
+    max_iters: int,
+    loading_bar=False,
 ) -> Tuple[torch.Tensor, float]:
     x, y = ds.x_data.cpu(), ds.y_data[:, 1].cpu()
     classifier = LinearSVC(
