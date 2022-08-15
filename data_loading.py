@@ -13,9 +13,9 @@ from utils import flatten_activations
 
 
 class PromptDataset:
-    def __init__(self, model_name: str, data_folder: str):
+    def __init__(self, model_word: str, data_folder: str):
         self.tokenizer: PreTrainedTokenizerBase = GPT2Tokenizer.from_pretrained(
-            model_name
+            model_word
         )
         self.folder = data_folder
         self.questions = {}
@@ -39,8 +39,14 @@ class PromptDataset:
     def answers(self):
         return {**self.positive_answers, **self.negative_answers}
 
-    def transform_prompt(self, prompt, name):
-        return prompt.replace("_", name)
+    def transform_prompt(self, prompt, word):
+        if isinstance(word, str):
+            return prompt.replace("_", word)
+        elif isinstance(word, list):
+            p = prompt
+            for i, r in enumerate(word):
+                p = p.replace(f"_{i}", r)
+            return p
 
     def transform_questions(self, questions):
         return dict(
@@ -49,8 +55,8 @@ class PromptDataset:
                 list(
                     set(
                         [
-                            self.transform_prompt(prompt, name)
-                            for name, prompt in itertools.product(words, questions)
+                            self.transform_prompt(prompt, word)
+                            for word, prompt in itertools.product(words, questions)
                         ]
                     )
                 ),
@@ -84,7 +90,7 @@ class PromptDataset:
             replacements = {"control": [""]} if mode == "control" else self.replacements
             for category, words in replacements.items():
                 transformed_prompts = [
-                    self.transform_prompt(prompt, name) for name in words
+                    self.transform_prompt(prompt, word) for word in words
                 ]
                 d[category] = [
                     self.tokenizer(preprompt + p + question, return_tensors="pt")

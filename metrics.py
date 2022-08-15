@@ -1,7 +1,7 @@
 from tqdm import tqdm
 from torch import torch
 import numpy as np
-from .data_loading import PromptDataset
+from data_loading import PromptDataset
 
 from utils import flatten_list
 
@@ -64,9 +64,30 @@ def get_oriented_relative_delta(
 ):
     """On average, is cat0 more positive than cat1?
 
-    average over all question of the the difference between the average over all cat0 and the average over all cat1."""
-    deltas = get_deltas(prompt_ds, run_fn, mode, loading_bar)
+    average over all question of the difference between the average positiveness over all cat0 and the average positiveness over all cat1."""
+    # deltas = get_deltas(prompt_ds, run_fn, mode, loading_bar)
+    # deltas_positives = deltas[:, :n_positives].sum(-1).mean()
+    # deltas_negatives = deltas[:, n_positives:].sum(-1).mean()
+    # return deltas_positives - deltas_negatives
+
+    tests = prompt_ds.get_all_tests(mode=mode)
+
     n_positives = len(prompt_ds.positive_answers)
-    deltas_positives = deltas[:, :n_positives].sum(-1).mean()
-    deltas_negatives = deltas[:, n_positives:].sum(-1).mean()
-    return deltas_positives - deltas_negatives
+
+    g = tqdm(tests) if loading_bar else tests
+    relative_positive = []
+    for test, _ in g:
+        r_per_category = []
+        for i, (category, questions) in enumerate(test.items()):
+            r_per_category.append(avg_probs(questions, run_fn, prompt_ds))
+
+        tot_prob_positive = [
+            sum([r_per_category[c][i] for i in range(n_positives)]) for c in [0, 1]
+        ]
+        tot_prob = [
+            sum([r_per_category[c][i] for i in range(len(prompt_ds.answers))])
+            for c in [0, 1]
+        ]
+        rp = tot_prob_positive[0] / tot_prob[0] - tot_prob_positive[1] / tot_prob[1]
+        relative_positive.append(rp)
+    return np.array(relative_positive).mean()

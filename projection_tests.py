@@ -25,7 +25,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 model = GPT2LMHeadModel.from_pretrained("gpt2").to(device)
 print(model.device)
 #%%
-ds = PromptDataset("gpt2", "men_v_women")
+ds = PromptDataset("gpt2", "men_v_momen_double_bind")
 # %%
 toks = ds.get_all_tokens()
 # %%

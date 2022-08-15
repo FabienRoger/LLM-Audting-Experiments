@@ -1,22 +1,22 @@
 {
     "female": [
-        "Donna",
-        "Ann",
-        "Kate",
-        "Diana",
-        "Sarah",
-        "Lisa",
-        "Joan",
-        "Amy"
+        ["Donna", "She", "she", "her", "Her"],
+        ["Ann", "She", "she", "her", "Her"],
+        ["Kate", "She", "she", "her", "Her"],
+        ["Diana", "She", "she", "her", "Her"],
+        ["Sarah", "She", "she", "her", "Her"],
+        ["Lisa", "She", "she", "her", "Her"],
+        ["Joan", "She", "she", "her", "Her"],
+        ["Amy", "She", "she", "her", "Her"]
     ],
-    "male": [
-        "John",
-        "Paul",
-        "Mike",
-        "Kevin",
-        "Steve",
-        "Greg",
-        "Jeff",
-        "Bill"
+    "male":[
+        ["John","He","he", "his", "His"],
+        ["Paul","He","he", "his", "His"],
+        ["Mike","He","he", "his", "His"],
+        ["Kevin","He","he", "his", "His"],
+        ["Steve","He","he", "his", "His"],
+        ["Greg","He","he", "his", "His"],
+        ["Jeff","He","he", "his", "His"],
+        ["Bill","He","he", "his", "His"]
     ]
 }
