@@ -1,4 +1,4 @@
-studied_layer,proj_method,ds,avg_delta,irrelevant_modifications
+studied_layer,proj_method,proj_strength,ds,avg_delta,irrelevant_modifications
 mlp10-17,torch_inlp,default,men_v_women,0.02778922,0.0
 mlp10-17,torch_inlp,proj1,men_v_women,0.024489593,0.003131637
 mlp10-17,torch_inlp,proj4,men_v_women,0.026495058,0.009555092
