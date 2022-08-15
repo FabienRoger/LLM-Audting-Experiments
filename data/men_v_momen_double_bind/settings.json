@@ -1,0 +1,20 @@
+{
+    "preprompt": "",
+    "question": "",
+    "positive_answers": [
+        " competent",
+        " effective",
+        " active",
+        " strong",
+        " tough",
+        " bold"
+    ],
+    "negative_answers": [
+        " incompetent",
+        " ineffective",
+        " passive",
+        " weak",
+        " gentle",
+        " timid"
+    ]
+}

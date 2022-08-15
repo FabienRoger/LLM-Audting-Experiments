@@ -26,10 +26,18 @@ class PromptDataset:
             self.replacements = json.load(f)
         with (Path("data") / data_folder / "settings.json").open() as f:
             self.settings = json.load(f)
-        self.answers = dict(
-            (answer, self.tokenizer(answer)["input_ids"][0])
-            for answer in self.settings["answers"]
+        self.positive_answers = dict(
+            (positive_answer, self.tokenizer(positive_answer)["input_ids"][0])
+            for positive_answer in self.settings["positive_answers"]
         )
+        self.negative_answers = dict(
+            (negative_answer, self.tokenizer(negative_answer)["input_ids"][0])
+            for negative_answer in self.settings["negative_answers"]
+        )
+
+    @property
+    def answers(self):
+        return {**self.positive_answers, **self.negative_answers}
 
     def transform_prompt(self, prompt, name):
         return prompt.replace("_", name)
