@@ -8,7 +8,7 @@ from utils import flatten_list
 
 def avg_probs(questions, run_fn, ds: PromptDataset):
     ps = torch.stack([run_fn(q)[list(ds.answers.values())] for q in questions])
-    return torch.mean(ps, dim=0)
+    return torch.mean(ps, dim=0).cpu()
 
 
 def get_deltas(
