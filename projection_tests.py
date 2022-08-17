@@ -1,6 +1,6 @@
 #%%
-# %load_ext autoreload
-# %autoreload 2
+%load_ext autoreload
+%autoreload 2
 #%%
 from transformers import GPT2Tokenizer, GPT2LMHeadModel
 import torch
@@ -13,10 +13,11 @@ from activation_utils import (
 )
 
 from data_loading import ActivationsDataset, PromptDataset
+from wikipedia_data import WikiDataset
 from inlp import inlp
 from linear import get_linear_cut, get_multi_lin_cut
 from logit_lense import print_logit_lense
-from metrics import get_avg_delta, get_perf_degradations
+from metrics import get_avg_delta, get_perf_degradations, perplexity
 from utils import make_projections, orthonormalize
 from tqdm import tqdm
 
@@ -26,6 +27,13 @@ model = GPT2LMHeadModel.from_pretrained("gpt2").to(device)
 print(model.device)
 #%%
 ds = PromptDataset("gpt2", "men_v_momen_double_bind")
+#%%
+wikids = WikiDataset("gpt2")
+#%%
+def default_run_fn(inps):
+    with torch.no_grad():
+        return torch.softmax(model(**inps).logits[0, :, :], -1)
+perplexity(wikids, default_run_fn, loading_bar=True)
 # %%
 toks = ds.get_all_tokens()
 # %%
@@ -56,9 +64,7 @@ modifications_fns = {"default": {}}
 #     ]
 # )
 for i in [1, 4, 8]:
-    modifications_fns[f"proj{i}"] = dict(
-        [(layer, make_projections(dirs[:i], is_rest=False)) for layer in stud_layers]
-    )
+    modifications_fns[f"proj{i}"] = dict([(layer, make_projections(dirs[:i], is_rest=False)) for layer in stud_layers])
 
 # %%
 
@@ -89,9 +95,7 @@ for mode in ["train", "val"]:
                 delta_yes = r["male"][0] - r["female"][0]
                 delta_no = r["male"][1] - r["female"][1]
                 print(
-                    " ".join(
-                        f"{c} yes:{ps[0]:.3f} no:{ps[1]:.3f}" for c, ps in r.items()
-                    ),
+                    " ".join(f"{c} yes:{ps[0]:.3f} no:{ps[1]:.3f}" for c, ps in r.items()),
                     f"delta yes:{delta_yes:.5f}",
                     f"delta no:{delta_no:.5f}",
                 )
@@ -101,9 +105,7 @@ run_fns = dict(
     [
         (
             name,
-            lambda x, modif=modif: torch.softmax(
-                run_and_modify(x, model, modif).logits[0, -1].detach(), -1
-            ),
+            lambda x, modif=modif: torch.softmax(run_and_modify(x, model, modif).logits[0, :, :].detach(), -1),
         )
         for name, modif in modifications_fns.items()
     ]

@@ -1,22 +1,22 @@
 from tqdm import tqdm
-from torch import torch
+import torch
 import numpy as np
 from data_loading import PromptDataset
+from wikipedia_data import WikiDataset
 
 from utils import flatten_list
+import torch.nn.functional as F
 
 
 def avg_probs(questions, run_fn, ds: PromptDataset):
-    ps = torch.stack([run_fn(q)[list(ds.answers.values())] for q in questions])
+    ps = torch.stack([run_fn(q)[-1, :][list(ds.answers.values())] for q in questions])
     return torch.mean(ps, dim=0).cpu()
 
 
-def get_deltas(
-    prompt_ds: PromptDataset, run_fn, mode: str = "val", loading_bar: bool = True
-):
+def get_deltas(prompt_ds: PromptDataset, run_fn, mode: str = "val", loading_bar: bool = True):
     """Get deltas between the first and second category.
 
-    run_fn takes a string as input and return probs for the next token.
+    run_fn takes tokens as input and return prob distribution for each seq pos.
 
     Return an array of shape (nb_tests, nb_answers)"""
     tests = prompt_ds.get_all_tests(mode=mode)
@@ -27,17 +27,12 @@ def get_deltas(
         r_per_category = []
         for i, (category, questions) in enumerate(test.items()):
             r_per_category.append(avg_probs(questions, run_fn, prompt_ds))
-        delta = [
-            r_per_category[0][i] - r_per_category[1][i]
-            for i in range(len(prompt_ds.answers))
-        ]
+        delta = [r_per_category[0][i] - r_per_category[1][i] for i in range(len(prompt_ds.answers))]
         deltas.append(delta)
     return deltas
 
 
-def get_perf_degradations(
-    prompt_ds: PromptDataset, run_fn, ref_run_fn, loading_bar: bool = True
-):
+def get_perf_degradations(prompt_ds: PromptDataset, run_fn, ref_run_fn, loading_bar: bool = True):
     tests = prompt_ds.get_all_tests(mode="control")
 
     g = tqdm(tests) if loading_bar else tests
@@ -49,9 +44,7 @@ def get_perf_degradations(
     return np.abs(np.array(deltas)).mean()
 
 
-def get_avg_delta(
-    prompt_ds: PromptDataset, run_fn, mode: str = "val", loading_bar: bool = True
-):
+def get_avg_delta(prompt_ds: PromptDataset, run_fn, mode: str = "val", loading_bar: bool = True):
     """On average, is the answer the same for both categories?
 
     average over all question and all possible responses of the abs of the difference between the average over all cat0 and the average over all cat1."""
@@ -59,9 +52,7 @@ def get_avg_delta(
     return np.abs(np.array(deltas)).mean()
 
 
-def get_oriented_relative_delta(
-    prompt_ds: PromptDataset, run_fn, mode: str = "val", loading_bar: bool = True
-):
+def get_oriented_relative_delta(prompt_ds: PromptDataset, run_fn, mode: str = "val", loading_bar: bool = True):
     """On average, is cat0 more positive than cat1?
 
     average over all question of the difference between the average positiveness over all cat0 and the average positiveness over all cat1."""
@@ -81,13 +72,27 @@ def get_oriented_relative_delta(
         for i, (category, questions) in enumerate(test.items()):
             r_per_category.append(avg_probs(questions, run_fn, prompt_ds))
 
-        tot_prob_positive = [
-            sum([r_per_category[c][i] for i in range(n_positives)]) for c in [0, 1]
-        ]
-        tot_prob = [
-            sum([r_per_category[c][i] for i in range(len(prompt_ds.answers))])
-            for c in [0, 1]
-        ]
+        tot_prob_positive = [sum([r_per_category[c][i] for i in range(n_positives)]) for c in [0, 1]]
+        tot_prob = [sum([r_per_category[c][i] for i in range(len(prompt_ds.answers))]) for c in [0, 1]]
         rp = tot_prob_positive[0] / tot_prob[0] - tot_prob_positive[1] / tot_prob[1]
         relative_positive.append(rp)
     return np.array(relative_positive).mean()
+
+
+def perplexity(ds: WikiDataset, run_fn, mode: str = "val", loading_bar: bool = True):
+    losses = []
+    token_count = 0
+    g = tqdm(ds.get_all_tokens(mode=mode)) if loading_bar else ds.get_all_tokens(mode=mode)
+    for seq in g:
+        ids, mask = seq.values()
+        x = seq
+        x["input_ids"] = ids[:, :-1]
+        x["attention_mask"] = mask[:, :-1]
+        y = ids[0, 1:]
+        y_pred = torch.log(run_fn(x))
+        loss = torch.nn.CrossEntropyLoss()(y_pred, y).cpu() * len(y)
+        token_count += len(y)
+        losses.append(loss)
+        if loading_bar:
+            g.set_postfix_str(f"Perplexity={np.exp(sum(losses)/token_count):.3f}")
+    return np.exp(sum(losses) / token_count)
