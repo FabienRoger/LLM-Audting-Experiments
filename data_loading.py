@@ -7,16 +7,33 @@ from transformers import GPT2Tokenizer, PreTrainedTokenizerBase
 import os
 from pathlib import Path
 
-import torch
-
 from utils import flatten_activations
 
+import pandas as pd
 
-class PromptDataset:
-    def __init__(self, model_word: str, data_folder: str):
-        self.tokenizer: PreTrainedTokenizerBase = GPT2Tokenizer.from_pretrained(
-            model_word
-        )
+from abc import ABC, abstractmethod
+
+
+class VariationDataset(ABC):
+    @abstractmethod
+    def get_strs_by_category(self, mode: str = "train"):
+        """Returns a dict of list of strings, keys are categories"""
+        pass
+
+    @abstractmethod
+    def get_tokens_by_category(self, mode: str = "train"):
+        """Returns a dict of list of model inputs (toks + attn mask), keys are categories"""
+        pass
+
+    @abstractmethod
+    def get_tests_by_category(self, mode: str = "train"):
+        """Returns a list of dict of a list of slightly different model inputs (toks + attn mask), keys are categories"""
+        pass
+
+
+class PromptDataset(VariationDataset):
+    def __init__(self, model_name: str, data_folder: str):
+        self.tokenizer: PreTrainedTokenizerBase = GPT2Tokenizer.from_pretrained(model_name)
         self.folder = data_folder
         self.questions = {}
         for mode in ["train", "val", "control"]:
@@ -53,22 +70,17 @@ class PromptDataset:
             (
                 category,
                 list(
-                    set(
-                        [
-                            self.transform_prompt(prompt, word)
-                            for word, prompt in itertools.product(words, questions)
-                        ]
-                    )
+                    set([self.transform_prompt(prompt, word) for word, prompt in itertools.product(words, questions)])
                 ),
             )
             for category, words in self.replacements.items()
         )
 
-    def get_all_strs(self, mode: str = "train"):
+    def get_strs_by_category(self, mode: str = "train"):
         questions = self.questions[mode]
         return self.transform_questions(questions)
 
-    def get_all_tokens(self, mode: str = "train"):
+    def get_tokens_by_category(self, mode: str = "train"):
         questions = self.questions[mode]
         prompts_per_category = self.transform_questions(questions)
         tokenized_prompts = dict(
@@ -80,7 +92,7 @@ class PromptDataset:
         )
         return tokenized_prompts
 
-    def get_all_tests(self, mode: str = "val"):
+    def get_tests_by_category(self, mode: str = "val"):
         prompts = self.questions[mode]
         preprompt = self.settings["preprompt"]
         question = self.settings["question"]
@@ -89,55 +101,70 @@ class PromptDataset:
             d = {}
             replacements = {"control": [""]} if mode == "control" else self.replacements
             for category, words in replacements.items():
-                transformed_prompts = [
-                    self.transform_prompt(prompt, word) for word in words
-                ]
+                transformed_prompts = [self.transform_prompt(prompt, word) for word in words]
                 d[category] = [
-                    self.tokenizer(preprompt + p + question, return_tensors="pt")
-                    for p in transformed_prompts
+                    self.tokenizer(preprompt + p + question, return_tensors="pt") for p in transformed_prompts
                 ]
             tests.append((d, prompt))
         return tests
 
 
-class ActivationsDataset(torch.utils.data.Dataset):
-    def __init__(
-        self,
-        x: torch.Tensor,
-        y: torch.Tensor,
-    ):
-        super().__init__()
-        self.x_data = x
-        self.y_data = y
+class StringsDataset(ABC):
+    @abstractmethod
+    def get_all_strs(self, mode: str = "train"):
+        """Returns a list of strings"""
+        pass
+
+    @abstractmethod
+    def get_all_tokens(self, mode: str = "train"):
+        """Returns a list of tokens"""
+        pass
+
+
+class RedditDataset(StringsDataset):
+    def __init__(self, model_name: str, strs: list, val_prop: float = 0.3):
+        self.tokenizer: PreTrainedTokenizerBase = GPT2Tokenizer.from_pretrained(model_name)
+        self.text = {}
+        nb_train = int(len(strs) * (1 - val_prop))
+        self.text["train"] = strs[:nb_train]
+        self.text["val"] = strs[nb_train:]
 
     @classmethod
-    def from_data(cls, data, layers: list, device: str = "cpu"):
-        data_x = []
-        data_y = []
-        for i, category in enumerate(data.keys()):
-            x = torch.cat(
-                tuple(flatten_activations(data[category][layer]) for layer in layers)
-            )
-            data_x.append(x)
-            y = torch.zeros(x.shape[0], len(data.keys()), dtype=torch.int32)
-            y[:, i] = 1
-            data_y.append(y)
-        return cls(torch.cat(data_x).to(device), torch.cat(data_y).to(device))
+    def from_file(cls, model_name: str, file_path: str = "reddit_by_subreddit/books.csv", val_prop: float = 0.3):
+        condition = lambda s: len(s.split()) < 500
+        strs = [s for s in pd.read_csv(Path("data") / file_path).selftext.dropna() if condition(s)]
+        return RedditDataset(model_name, strs, val_prop)
 
-    def project(self, dir: torch.Tensor):
-        dir_norm = (dir / torch.linalg.norm(dir)).to(self.x_data.device)
-        new_x_data = self.x_data - torch.outer((self.x_data @ dir_norm), dir_norm)
-        return ActivationsDataset(new_x_data, self.y_data)
+    @classmethod
+    def from_folder(cls, model_name: str, folder_path: str = "reddit_by_subreddit", val_prop: float = 0.3):
+        condition = lambda s: len(s.split()) < 500
+        strs = []
+        for path in (Path("data") / folder_path).glob("*.csv"):
+            strs += [s for s in pd.read_csv(path).selftext.dropna() if condition(s)]
+        return RedditDataset(model_name, strs, val_prop)
 
-    def project_(self, dir: torch.Tensor):
-        dir_norm = (dir / torch.linalg.norm(dir)).to(self.x_data.device)
-        self.x_data -= torch.outer((self.x_data @ dir_norm), dir_norm)
+    def get_all_strs(self, mode: str = "train"):
+        return self.text[mode]
 
-    def __len__(self):
-        return len(self.x_data)
+    def get_all_tokens(self, mode: str = "train"):
+        text = self.text[mode]
+        return [self.tokenizer(t, return_tensors="pt") for t in text]
 
-    def __getitem__(self, idx):
-        x = self.x_data[idx, :]
-        y = self.y_data[idx, :]
-        sample = (x, y)
-        return sample
+
+class WikiDataset(StringsDataset):
+    def __init__(self, model_name: str, data_folder: str = "wikitext"):
+        self.tokenizer: PreTrainedTokenizerBase = GPT2Tokenizer.from_pretrained(model_name)
+        self.folder = data_folder
+        self.text = {}
+        for mode in ["valid", "test"]:
+            with (Path("data") / data_folder / f"wiki.{mode}.raw").open(encoding="utf-8") as f:
+                mode = {"valid": "train", "test": "val"}[mode]
+                self.text[mode] = f.readlines()
+                # In practice, each line is short enough to fit in the prompt, but reasonably long too (max 500 words, average of 55). We use one line as the unit of text. Not super scientific but that will be enough. Anyway, the encoding is a little messed up too...
+
+    def get_all_strs(self, mode: str = "train"):
+        return self.text[mode]
+
+    def get_all_tokens(self, mode: str = "train"):
+        text = self.text[mode]
+        return [self.tokenizer(t, return_tensors="pt") for t in text]

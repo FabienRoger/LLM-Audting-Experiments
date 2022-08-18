@@ -12,15 +12,17 @@ from activation_utils import (
     get_mlp_layers,
 )
 
-from data_loading import ActivationsDataset, PromptDataset
-from wikipedia_data import WikiDataset
+from data_loading import PromptDataset, WikiDataset
+from activation_ds import ActivationsDataset
 from inlp import inlp
 from linear import get_linear_cut, get_multi_lin_cut
 from logit_lense import print_logit_lense
 from metrics import get_avg_delta, get_perf_degradations, perplexity
 from utils import make_projections, orthonormalize
 from tqdm import tqdm
-
+import pandas as pd
+#%%
+df = pd.read_csv("data/reddit_by_subreddit/AskReddit.csv")
 #%%
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 model = GPT2LMHeadModel.from_pretrained("gpt2").to(device)
@@ -35,10 +37,7 @@ def default_run_fn(inps):
         return torch.softmax(model(**inps).logits[0, :, :], -1)
 perplexity(wikids, default_run_fn, loading_bar=True)
 # %%
-toks = ds.get_all_tokens()
-# %%
 
-# stud_layers = get_res_layers(model, [5,7,8])
 stud_layers = get_mlp_layers(model, [5, 7, 8])
 activations = get_all_activations(ds, model, stud_layers)
 # %%
@@ -81,7 +80,7 @@ def avg_probs(questions, run_fn, ds):
 for mode in ["train", "val"]:
     # for mode in ["control", "train", "val"]:
     print(mode)
-    tests = ds.get_all_tests(mode=mode)
+    tests = ds.get_tests_by_category(mode=mode)
     for test, prompt in tests:
         print(prompt)
         for name, modif in modifications_fns.items():

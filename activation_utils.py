@@ -1,33 +1,41 @@
 from typing import Optional
 import torch
 
-from data_loading import PromptDataset
+from data_loading import StringsDataset, VariationDataset
 
 
 def get_mlp_layers(model, layer_numbers: Optional[list]):
-    layer_numbers = (
-        list(range(len(model.transformer.h)))
-        if layer_numbers is None
-        else layer_numbers
-    )
+    layer_numbers = list(range(len(model.transformer.h))) if layer_numbers is None else layer_numbers
     return [l.mlp for i, l in enumerate(model.transformer.h) if i in layer_numbers]
 
 
 def get_res_layers(model, layer_numbers: Optional[list]):
-    layer_numbers = (
-        list(range(len(model.transformer.h)))
-        if layer_numbers is None
-        else layer_numbers
-    )
+    layer_numbers = list(range(len(model.transformer.h))) if layer_numbers is None else layer_numbers
     return [l for i, l in enumerate(model.transformer.h) if i in layer_numbers]
 
 
-def get_all_activations(ds: PromptDataset, model, layers, mode: str = "val"):
-    prompts = ds.get_all_tokens(mode)
+def get_all_activations(ds: VariationDataset, model, layers, mode: str = "val"):
+    prompts = ds.get_tokens_by_category(mode)
     activations = {}
     for category, l in prompts.items():
         activations[category] = {}
         for i, inps in enumerate(l):
+            acts = get_activations(inps, model, layers)
+            for layer, act in acts.items():
+                if i == 0:
+                    activations[category][layer] = []
+                activations[category][layer].append(act)
+    return activations
+
+
+def get_corresponding_activations(datasets, model, layers, mode: str = "val"):
+    """datasets is a dict where keys are categories & values are StringDatasets."""
+    activations = {}
+    for category, ds in datasets.items():
+        ds: StringsDataset = ds
+        prompts = ds.get_all_tokens(mode)
+        activations[category] = {}
+        for i, inps in enumerate(prompts):
             acts = get_activations(inps, model, layers)
             for layer, act in acts.items():
                 if i == 0:

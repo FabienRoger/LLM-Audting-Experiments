@@ -1,25 +1,25 @@
 from tqdm import tqdm
 import torch
 import numpy as np
-from data_loading import PromptDataset
+from data_loading import VariationDataset
 from wikipedia_data import WikiDataset
 
 from utils import flatten_list
 import torch.nn.functional as F
 
 
-def avg_probs(questions, run_fn, ds: PromptDataset):
+def avg_probs(questions, run_fn, ds: VariationDataset):
     ps = torch.stack([run_fn(q)[-1, :][list(ds.answers.values())] for q in questions])
     return torch.mean(ps, dim=0).cpu()
 
 
-def get_deltas(prompt_ds: PromptDataset, run_fn, mode: str = "val", loading_bar: bool = True):
+def get_deltas(prompt_ds: VariationDataset, run_fn, mode: str = "val", loading_bar: bool = True):
     """Get deltas between the first and second category.
 
     run_fn takes tokens as input and return prob distribution for each seq pos.
 
     Return an array of shape (nb_tests, nb_answers)"""
-    tests = prompt_ds.get_all_tests(mode=mode)
+    tests = prompt_ds.get_tests_by_category(mode=mode)
 
     g = tqdm(tests) if loading_bar else tests
     deltas = []
@@ -32,8 +32,8 @@ def get_deltas(prompt_ds: PromptDataset, run_fn, mode: str = "val", loading_bar:
     return deltas
 
 
-def get_perf_degradations(prompt_ds: PromptDataset, run_fn, ref_run_fn, loading_bar: bool = True):
-    tests = prompt_ds.get_all_tests(mode="control")
+def get_perf_degradations(prompt_ds: VariationDataset, run_fn, ref_run_fn, loading_bar: bool = True):
+    tests = prompt_ds.get_tests_by_category(mode="control")
 
     g = tqdm(tests) if loading_bar else tests
     deltas = []
@@ -44,7 +44,7 @@ def get_perf_degradations(prompt_ds: PromptDataset, run_fn, ref_run_fn, loading_
     return np.abs(np.array(deltas)).mean()
 
 
-def get_avg_delta(prompt_ds: PromptDataset, run_fn, mode: str = "val", loading_bar: bool = True):
+def get_avg_delta(prompt_ds: VariationDataset, run_fn, mode: str = "val", loading_bar: bool = True):
     """On average, is the answer the same for both categories?
 
     average over all question and all possible responses of the abs of the difference between the average over all cat0 and the average over all cat1."""
@@ -52,7 +52,7 @@ def get_avg_delta(prompt_ds: PromptDataset, run_fn, mode: str = "val", loading_b
     return np.abs(np.array(deltas)).mean()
 
 
-def get_oriented_relative_delta(prompt_ds: PromptDataset, run_fn, mode: str = "val", loading_bar: bool = True):
+def get_oriented_relative_delta(prompt_ds: VariationDataset, run_fn, mode: str = "val", loading_bar: bool = True):
     """On average, is cat0 more positive than cat1?
 
     average over all question of the difference between the average positiveness over all cat0 and the average positiveness over all cat1."""
@@ -61,7 +61,7 @@ def get_oriented_relative_delta(prompt_ds: PromptDataset, run_fn, mode: str = "v
     # deltas_negatives = deltas[:, n_positives:].sum(-1).mean()
     # return deltas_positives - deltas_negatives
 
-    tests = prompt_ds.get_all_tests(mode=mode)
+    tests = prompt_ds.get_tests_by_category(mode=mode)
 
     n_positives = len(prompt_ds.positive_answers)
 

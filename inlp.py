@@ -1,4 +1,4 @@
-from data_loading import ActivationsDataset
+from activation_ds import ActivationsDataset
 
 from tqdm import tqdm
 
