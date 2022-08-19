@@ -1,9 +1,7 @@
 from tqdm import tqdm
 import torch
 import numpy as np
-from data_loading import VariationDataset
-from wikipedia_data import WikiDataset
-
+from data_loading import VariationDataset, StringsDataset
 from utils import flatten_list
 import torch.nn.functional as F
 
@@ -79,7 +77,7 @@ def get_oriented_relative_delta(prompt_ds: VariationDataset, run_fn, mode: str =
     return np.array(relative_positive).mean()
 
 
-def perplexity(ds: WikiDataset, run_fn, mode: str = "val", loading_bar: bool = True):
+def perplexity(ds: StringsDataset, run_fn, mode: str = "val", loading_bar: bool = True):
     losses = []
     token_count = 0
     g = tqdm(ds.get_all_tokens(mode=mode)) if loading_bar else ds.get_all_tokens(mode=mode)
