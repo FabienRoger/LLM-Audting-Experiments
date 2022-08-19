@@ -131,13 +131,13 @@ class RedditDataset(StringsDataset):
 
     @classmethod
     def from_file(cls, model_name: str, file_path: str = "reddit_by_subreddit/books.csv", val_prop: float = 0.3):
-        condition = lambda s: len(s.split()) < 500
+        condition = lambda s: len(s.split()) < 250
         strs = [s for s in pd.read_csv(Path("data") / file_path).selftext.dropna() if condition(s)]
         return RedditDataset(model_name, strs, val_prop)
 
     @classmethod
     def from_folder(cls, model_name: str, folder_path: str = "reddit_by_subreddit", val_prop: float = 0.3):
-        condition = lambda s: len(s.split()) < 500
+        condition = lambda s: len(s.split()) < 250
         strs = []
         for path in (Path("data") / folder_path).glob("*.csv"):
             strs += [s for s in pd.read_csv(path).selftext.dropna() if condition(s)]
@@ -159,7 +159,8 @@ class WikiDataset(StringsDataset):
         for mode in ["valid", "test"]:
             with (Path("data") / data_folder / f"wiki.{mode}.raw").open(encoding="utf-8") as f:
                 mode = {"valid": "train", "test": "val"}[mode]
-                self.text[mode] = f.readlines()
+                condition = lambda s: len(s.split()) < 250
+                self.text[mode] = [s for s in f.readlines() if condition(s)]
                 # In practice, each line is short enough to fit in the prompt, but reasonably long too (max 500 words, average of 55). We use one line as the unit of text. Not super scientific but that will be enough. Anyway, the encoding is a little messed up too...
 
     def get_all_strs(self, mode: str = "train"):
