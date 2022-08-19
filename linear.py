@@ -3,7 +3,7 @@ from sklearn.svm import LinearSVC
 import torch
 import numpy as np
 from sklearn.metrics import accuracy_score
-from data_loading import ActivationsDataset
+from activation_ds import ActivationsDataset
 from tqdm import tqdm
 
 
