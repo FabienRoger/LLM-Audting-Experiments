@@ -3,6 +3,9 @@ from math import exp
 import os
 import openai
 from transformers import GPT2Tokenizer
+from dotenv import load_dotenv
+
+load_dotenv()
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 #%%
@@ -50,9 +53,7 @@ def get_rank_probs(prompt: str, engine: str = "text-babbage-001"):
         logit_bias=logit_bias,
     )
     top_logprobs = completion["choices"][0]["logprobs"]["top_logprobs"][0]
-    probs = [
-        exp(top_logprobs[str(i)]) if str(i) in top_logprobs else 0 for i in range(1, 6)
-    ]
+    probs = [exp(top_logprobs[str(i)]) if str(i) in top_logprobs else 0 for i in range(1, 6)]
     return probs
 
 
